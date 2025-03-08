@@ -1,296 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Travel Wishlist Map</title>
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: Arial, sans-serif;
-        }
-        #map {
-            height: 80vh;
-            width: 100%;
-        }
-        .controls {
-            padding: 10px;
-            background: #f8f8f8;
-        }
-        .location-form {
-            display: flex;
-            flex-direction: column;
-            max-width: 300px;
-            margin: 10px;
-        }
-        .location-form input, .location-form select, .location-form textarea {
-            margin-bottom: 8px;
-            padding: 5px;
-        }
-        .filter-options {
-            display: flex;
-            gap: 10px;
-            margin: 10px;
-        }
-        .marker-high { color: #e74c3c; }
-        .marker-medium { color: #f39c12; }
-        .marker-low { color: #3498db; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Travel Wishlist Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/main.css">
 </head>
+
 <body>
+  <header>
+    <h1>Travel Wishlist Map</h1>
     <div class="controls">
-        <h2>Travel Wishlist Map</h2>
-        <p>Click on the map to add a new destination, or click on a marker to edit.</p>
-        <div class="filter-options">
-            <select id="priorityFilter">
-                <option value="all">All Priorities</option>
-                <option value="high">High Priority</option>
-                <option value="medium">Medium Priority</option>
-                <option value="low">Low Priority</option>
-            </select>
-            <select id="costFilter">
-                <option value="all">All Costs</option>
-                <option value="high">High Cost</option>
-                <option value="medium">Medium Cost</option>
-                <option value="low">Low Cost</option>
-            </select>
-            <select id="vibeFilter">
-                <option value="all">All Vibes</option>
-                <option value="romantic">Romantic</option>
-                <option value="adventure">Adventure</option>
-                <option value="relaxation">Relaxation</option>
-                <option value="culture">Culture</option>
-            </select>
-            <button id="applyFilters">Apply Filters</button>
-            <button id="clearFilters">Clear Filters</button>
-        </div>
+      <button id="filter-toggle-btn" class="btn">Filter</button>
+      <button id="import-export-btn" class="btn">Import/Export</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="map-container">
+      <div id="map"></div>
     </div>
 
-    <div id="map"></div>
-    
-    <div id="location-editor" class="location-form" style="display: none;">
-        <h3>Edit Location</h3>
-        <input type="text" id="locationName" placeholder="Location Name">
-        <textarea id="locationNotes" placeholder="Notes..."></textarea>
-        <select id="locationPriority">
-            <option value="high">High Priority</option>
-            <option value="medium">Medium Priority</option>
-            <option value="low">Low Priority</option>
-        </select>
-        <select id="locationCost">
-            <option value="high">High Cost</option>
-            <option value="medium">Medium Cost</option>
-            <option value="low">Low Cost</option>
-        </select>
-        <select id="locationVibe">
-            <option value="romantic">Romantic</option>
-            <option value="adventure">Adventure</option>
-            <option value="relaxation">Relaxation</option>
-            <option value="culture">Culture</option>
-        </select>
-        <button id="saveLocation">Save</button>
-        <button id="deleteLocation">Delete</button>
-        <button id="cancelEdit">Cancel</button>
+    <div id="sidebar">
+      <div id="location-details" class="panel hidden"></div>
+      <div id="filter-panel" class="panel hidden"></div>
+      <div id="import-export-panel" class="panel hidden"></div>
     </div>
+  </main>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // Initialize the map
-        const map = L.map('map').setView([20, 0], 2);
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script type="module">
+    import TravelWishlistApp from './js/app.js';
+    import LocationDetailsUI from './js/location-details.js';
+    import FilterUI from './js/filter-ui.js';
+    import ImportExportUI from './js/import-export.js';
 
-        // Add OpenStreetMap tiles (free)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Initialize the app
+      const app = new TravelWishlistApp({
+        mapId: 'map',
+        storageType: 'localStorage'
+      });
 
-        // Initialize locations from localStorage or use defaults
-        let locations = JSON.parse(localStorage.getItem('travelWishlist')) || [
-            {
-                id: 1,
-                name: "Paris",
-                lat: 48.8566,
-                lng: 2.3522,
-                notes: "Visit during spring for best weather",
-                priority: "high",
-                cost: "medium",
-                vibe: "romantic"
-            },
-            {
-                id: 2,
-                name: "Tokyo",
-                lat: 35.6762,
-                lng: 139.6503,
-                notes: "Cherry blossom season in April",
-                priority: "medium",
-                cost: "high",
-                vibe: "adventure"
-            }
-        ];
+      await app.init();
 
-        // Store markers to access them later for filtering
-        const markers = {};
-        
-        // Current location being edited
-        let currentLocationId = null;
+      // Initialize UI components
+      const locationDetailsUI = new LocationDetailsUI('location-details', app);
+      const filterUI = new FilterUI('filter-panel', app);
+      const importExportUI = new ImportExportUI('import-export-panel', app);
 
-        // Render all locations on the map
-        function renderLocations(filterOptions = {}) {
-            // Clear existing markers
-            Object.values(markers).forEach(marker => map.removeLayer(marker));
-            
-            // Add filtered markers
-            locations.forEach(location => {
-                // Apply filters
-                if (filterOptions.priority && filterOptions.priority !== 'all' && location.priority !== filterOptions.priority) return;
-                if (filterOptions.cost && filterOptions.cost !== 'all' && location.cost !== filterOptions.cost) return;
-                if (filterOptions.vibe && filterOptions.vibe !== 'all' && location.vibe !== filterOptions.vibe) return;
-                
-                // Create marker with icon based on priority
-                const marker = L.marker([location.lat, location.lng], {
-                    icon: L.divIcon({
-                        html: `<div class="marker-${location.priority}">📍</div>`,
-                        className: 'custom-marker',
-                        iconSize: [25, 25],
-                        iconAnchor: [12, 25],
-                        popupAnchor: [0, -25]
-                    })
-                }).addTo(map);
-                
-                // Add popup with basic info
-                marker.bindPopup(`<b>${location.name}</b><br>${location.notes}`);
-                
-                // Add click event to edit
-                marker.on('click', () => editLocation(location.id));
-                
-                // Store marker reference
-                markers[location.id] = marker;
-            });
+      // Set up UI component in the app
+      app.ui = {
+        locationDetails: locationDetailsUI,
+        filter: filterUI,
+        importExport: importExportUI
+      };
+
+      // Set up event listeners for toggling panels
+      document.getElementById('filter-toggle-btn').addEventListener('click', () => {
+        const filterPanel = document.getElementById('filter-panel');
+        const importExportPanel = document.getElementById('import-export-panel');
+
+        if (filterPanel.classList.contains('hidden')) {
+          // Show filter panel
+          filterPanel.classList.remove('hidden');
+          importExportPanel.classList.add('hidden');
+        } else {
+          // Hide filter panel
+          filterPanel.classList.add('hidden');
+        }
+      });
+
+      document.getElementById('import-export-btn').addEventListener('click', () => {
+        const filterPanel = document.getElementById('filter-panel');
+        const importExportPanel = document.getElementById('import-export-panel');
+
+        if (importExportPanel.classList.contains('hidden')) {
+          // Show import/export panel
+          importExportPanel.classList.remove('hidden');
+          filterPanel.classList.add('hidden');
+        } else {
+          // Hide import/export panel
+          importExportPanel.classList.add('hidden');
+        }
+      });
+
+      // Update app's showLocationDetails method to use the UI component
+      const originalShowLocationDetails = app.showLocationDetails;
+      app.showLocationDetails = function (locationOrId) {
+        // Call original method to update state
+        originalShowLocationDetails.call(app, locationOrId);
+
+        // Show location details UI
+        let location;
+        if (typeof locationOrId === 'object') {
+          location = locationOrId;
+        } else {
+          location = app.locations.find(loc => loc.id == locationOrId);
         }
 
-        // Save locations to localStorage
-        function saveLocations() {
-            localStorage.setItem('travelWishlist', JSON.stringify(locations));
+        if (location) {
+          // Hide other panels
+          document.getElementById('filter-panel').classList.add('hidden');
+          document.getElementById('import-export-panel').classList.add('hidden');
+
+          // Show location details
+          locationDetailsUI.show(location);
         }
-
-        // Edit a location
-        function editLocation(id) {
-            const location = locations.find(loc => loc.id === id);
-            if (!location) return;
-            
-            // Fill form with location data
-            document.getElementById('locationName').value = location.name;
-            document.getElementById('locationNotes').value = location.notes;
-            document.getElementById('locationPriority').value = location.priority;
-            document.getElementById('locationCost').value = location.cost;
-            document.getElementById('locationVibe').value = location.vibe;
-            
-            // Show form
-            document.getElementById('location-editor').style.display = 'block';
-            
-            // Set current location ID
-            currentLocationId = id;
-        }
-
-        // Add a new location where the user clicked
-        map.on('click', (e) => {
-            const { lat, lng } = e.latlng;
-            const id = Date.now(); // Use timestamp as unique ID
-            
-            const newLocation = {
-                id,
-                name: "New Destination",
-                lat,
-                lng,
-                notes: "",
-                priority: "medium",
-                cost: "medium",
-                vibe: "adventure"
-            };
-            
-            locations.push(newLocation);
-            saveLocations();
-            renderLocations();
-            editLocation(id);
-        });
-
-        // Save button handler
-        document.getElementById('saveLocation').addEventListener('click', () => {
-            if (currentLocationId === null) return;
-            
-            const index = locations.findIndex(loc => loc.id === currentLocationId);
-            if (index === -1) return;
-            
-            // Update location data
-            locations[index] = {
-                ...locations[index],
-                name: document.getElementById('locationName').value,
-                notes: document.getElementById('locationNotes').value,
-                priority: document.getElementById('locationPriority').value,
-                cost: document.getElementById('locationCost').value,
-                vibe: document.getElementById('locationVibe').value
-            };
-            
-            // Save and rerender
-            saveLocations();
-            renderLocations();
-            
-            // Hide form
-            document.getElementById('location-editor').style.display = 'none';
-            currentLocationId = null;
-        });
-
-        // Delete button handler
-        document.getElementById('deleteLocation').addEventListener('click', () => {
-            if (currentLocationId === null) return;
-            
-            // Filter out the current location
-            locations = locations.filter(loc => loc.id !== currentLocationId);
-            
-            // Save and rerender
-            saveLocations();
-            renderLocations();
-            
-            // Hide form
-            document.getElementById('location-editor').style.display = 'none';
-            currentLocationId = null;
-        });
-
-        // Cancel button handler
-        document.getElementById('cancelEdit').addEventListener('click', () => {
-            document.getElementById('location-editor').style.display = 'none';
-            currentLocationId = null;
-        });
-
-        // Apply filters button handler
-        document.getElementById('applyFilters').addEventListener('click', () => {
-            const priorityFilter = document.getElementById('priorityFilter').value;
-            const costFilter = document.getElementById('costFilter').value;
-            const vibeFilter = document.getElementById('vibeFilter').value;
-            
-            renderLocations({
-                priority: priorityFilter,
-                cost: costFilter,
-                vibe: vibeFilter
-            });
-        });
-
-        // Clear filters button handler
-        document.getElementById('clearFilters').addEventListener('click', () => {
-            document.getElementById('priorityFilter').value = 'all';
-            document.getElementById('costFilter').value = 'all';
-            document.getElementById('vibeFilter').value = 'all';
-            
-            renderLocations();
-        });
-
-        // Initial render
-        renderLocations();
-    </script>
+      };
+    });
+  </script>
 </body>
+
 </html>
